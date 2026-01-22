@@ -1,3 +1,4 @@
+const fs = require('fs');
 const express = require('express');
 const { getAuthStatus } = require('./db_helper.cjs');
 const { discoverProject } = require('./discover_project.cjs');
@@ -286,14 +287,34 @@ app.post(['/v1/chat/completions', '/chat/completions'], async (req, res) => {
             };
         });
 
+        // --- FIX: Inject Thought Signature for Tool Calls ---
+        // Google Agent models require a "thought" (text) part before any "functionCall" part in the same turn.
+        // If we are sending a history where the model called a tool but didn't leave a thought (common in OpenAI format),
+        // we must inject one.
+        for (const content of contents) {
+            if (content.role === 'model') {
+                // Find function calls
+                for (const part of content.parts) {
+                    if (part.functionCall && !part.thoughtSignature) {
+                        // Inject the bypass signature as per documentation
+                        part.thoughtSignature = "context_engineering_is_the_way_to_go";
+                    }
+                }
+            }
+        }
+        // --------------------------------------------------
+
         const requestObj = {
             contents: contents,
             systemInstruction: {
                 parts: [{ text: systemInstructionText }]
             },
             generationConfig: {
-                maxOutputTokens: max_tokens || 8192, // Increased for larger coding tasks
-                temperature: temperature !== undefined ? temperature : 0.7
+                maxOutputTokens: max_tokens || 8192,
+                temperature: temperature !== undefined ? temperature : 0.7,
+                topP: req.body.top_p,
+                topK: req.body.top_k,
+                stopSequences: Array.isArray(req.body.stop) ? req.body.stop : (req.body.stop ? [req.body.stop] : undefined)
             }
         };
 
@@ -360,6 +381,12 @@ app.post(['/v1/chat/completions', '/chat/completions'], async (req, res) => {
             })
         };
 
+        // --- DEBUG REQUEST ---
+        try {
+            fs.appendFileSync('debug_req.log', `[${new Date().toISOString()}] REQUEST PAYLOAD:\n${JSON.stringify(payload, null, 2)}\n----------------\n`);
+        } catch (e) { console.error('Log failed', e); }
+        // ---------------------
+
         const remoteUrl = 'https://daily-cloudcode-pa.googleapis.com/v1internal:streamGenerateContent?alt=sse';
 
         if (stream) {
@@ -401,8 +428,14 @@ app.post(['/v1/chat/completions', '/chat/completions'], async (req, res) => {
 
                 let buffer = '';
                 let sentToolCallIds = new Set();
+                let lastUsageMetadata = null;
 
                 remoteRes.on('data', (chunk) => {
+                    // --- DEBUG LOGGING ---
+                    try {
+                        fs.appendFileSync('debug_traffic.log', `[${new Date().toISOString()}] CHUNK: ${chunk.toString()}\n---\n`);
+                    } catch (e) { }
+
                     buffer += chunk.toString();
                     const lines = buffer.split('\n');
                     buffer = lines.pop();
@@ -413,6 +446,12 @@ app.post(['/v1/chat/completions', '/chat/completions'], async (req, res) => {
                             if (!rawData) continue;
                             try {
                                 const responseData = JSON.parse(rawData);
+
+                                // Capture usage
+                                if (responseData.response?.usageMetadata) {
+                                    lastUsageMetadata = responseData.response.usageMetadata;
+                                }
+
                                 const candidates = responseData.response?.candidates || [];
                                 for (const cand of candidates) {
                                     const parts = cand.content?.parts || [];
@@ -420,7 +459,7 @@ app.post(['/v1/chat/completions', '/chat/completions'], async (req, res) => {
 
                                     for (let i = 0; i < parts.length; i++) {
                                         const part = parts[i];
-                                        const openAIEvent = {
+                                        const baseEvent = {
                                             id: 'chatcmpl-' + crypto.randomUUID(),
                                             object: 'chat.completion.chunk',
                                             created: Math.floor(Date.now() / 1000),
@@ -428,71 +467,52 @@ app.post(['/v1/chat/completions', '/chat/completions'], async (req, res) => {
                                             choices: [{
                                                 index: 0,
                                                 delta: {},
-                                                finish_reason: finishReason ? (finishReason === 'STOP' ? 'stop' : (finishReason === 'TOOL_USE' ? 'tool_calls' : finishReason)) : null
+                                                finish_reason: finishReason ? (finishReason === 'STOP' ? 'stop' : (finishReason === 'TOOL_USE' ? 'tool_calls' : (finishReason === 'MAX_TOKENS' ? 'length' : finishReason))) : null
                                             }]
                                         };
 
                                         // 1. Handle Text Content
                                         if (part.text) {
-                                            openAIEvent.choices[0].delta.content = part.text;
+                                            const textEvent = JSON.parse(JSON.stringify(baseEvent));
+                                            textEvent.choices[0].delta.content = part.text;
 
-                                            // Handle XML-style tags fallback
-                                            const toolMatches = [...part.text.matchAll(/<tool_code>([\s\S]*?)<\/tool_code>/g)];
-                                            if (toolMatches.length > 0) {
-                                                const toolCalls = toolMatches.map(m => {
-                                                    const tagContent = m[1].trim();
-                                                    // Only send if we haven't sent this exact tag content yet in this stream
-                                                    const tagId = 'tag_' + crypto.createHash('md5').update(tagContent).digest('hex');
-                                                    if (sentToolCallIds.has(tagId)) return null;
-                                                    sentToolCallIds.add(tagId);
-
-                                                    const parsed = parseGoogleToolExpression(tagContent);
-                                                    if (!parsed) return null;
-                                                    return {
-                                                        index: 0,
-                                                        id: 'call_' + crypto.randomUUID().substring(0, 8),
-                                                        type: 'function',
-                                                        function: {
-                                                            name: parsed.name,
-                                                            arguments: JSON.stringify(parsed.args)
-                                                        }
-                                                    };
-                                                }).filter(t => t !== null);
-
-                                                if (toolCalls.length > 0) {
-                                                    openAIEvent.choices[0].delta.tool_calls = toolCalls;
-                                                    openAIEvent.choices[0].delta.content = openAIEvent.choices[0].delta.content.replace(/<tool_code>[\s\S]*?<\/tool_code>/g, '');
-                                                }
+                                            if (finishReason === 'STOP' && i === parts.length - 1) {
+                                                textEvent.choices[0].delta.content += ' \n\n*(via Antigravity Proxy)*';
                                             }
+                                            res.write(`data: ${JSON.stringify(textEvent)}\n\n`);
                                         }
 
-                                        // 2. Handle Structured Function Calls
+                                        // 2. Handle Structured Function Calls (with Slicing)
                                         if (part.functionCall) {
-                                            // Create a unique hash for this function call to avoid double-sending
                                             const callHash = crypto.createHash('md5').update(part.functionCall.name + JSON.stringify(part.functionCall.args)).digest('hex');
 
                                             if (!sentToolCallIds.has(callHash)) {
                                                 sentToolCallIds.add(callHash);
-                                                openAIEvent.choices[0].delta.tool_calls = [{
+                                                const callId = 'call_' + crypto.randomUUID().substring(0, 8);
+                                                const argsStr = JSON.stringify(part.functionCall.args || {});
+
+                                                // Start chunk
+                                                const startEvent = JSON.parse(JSON.stringify(baseEvent));
+                                                startEvent.choices[0].delta.tool_calls = [{
                                                     index: 0,
-                                                    id: 'call_' + crypto.randomUUID().substring(0, 8),
+                                                    id: callId,
                                                     type: 'function',
-                                                    function: {
-                                                        name: part.functionCall.name,
-                                                        arguments: JSON.stringify(part.functionCall.args || {})
-                                                    }
+                                                    function: { name: part.functionCall.name, arguments: '' }
                                                 }];
+                                                res.write(`data: ${JSON.stringify(startEvent)}\n\n`);
+
+                                                // Slice chunks
+                                                const SLICE_SIZE = 120;
+                                                for (let j = 0; j < argsStr.length; j += SLICE_SIZE) {
+                                                    const slice = argsStr.substring(j, j + SLICE_SIZE);
+                                                    const argEvent = JSON.parse(JSON.stringify(baseEvent));
+                                                    argEvent.choices[0].delta.tool_calls = [{
+                                                        index: 0,
+                                                        function: { arguments: slice }
+                                                    }];
+                                                    res.write(`data: ${JSON.stringify(argEvent)}\n\n`);
+                                                }
                                             }
-                                        }
-
-                                        if (finishReason && finishReason === 'STOP') {
-                                            const sig = ' \n\n*(via Antigravity Proxy)*';
-                                            if (openAIEvent.choices[0].delta.content) openAIEvent.choices[0].delta.content += sig;
-                                            else if (!openAIEvent.choices[0].delta.tool_calls) openAIEvent.choices[0].delta.content = sig;
-                                        }
-
-                                        if (Object.keys(openAIEvent.choices[0].delta).length > 0 || openAIEvent.choices[0].finish_reason) {
-                                            res.write(`data: ${JSON.stringify(openAIEvent)}\n\n`);
                                         }
                                     }
                                 }
@@ -504,6 +524,21 @@ app.post(['/v1/chat/completions', '/chat/completions'], async (req, res) => {
                 });
 
                 remoteRes.on('end', () => {
+                    if (lastUsageMetadata) {
+                        const usageEvent = {
+                            id: 'chatcmpl-' + crypto.randomUUID(),
+                            object: 'chat.completion.chunk',
+                            created: Math.floor(Date.now() / 1000),
+                            model: model,
+                            choices: [],
+                            usage: {
+                                prompt_tokens: lastUsageMetadata.promptTokenCount,
+                                completion_tokens: lastUsageMetadata.candidatesTokenCount,
+                                total_tokens: lastUsageMetadata.totalTokenCount
+                            }
+                        };
+                        res.write(`data: ${JSON.stringify(usageEvent)}\n\n`);
+                    }
                     res.write('data: [DONE]\n\n');
                     res.end();
                     console.log('Stream finished');
