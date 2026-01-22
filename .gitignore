@@ -1,0 +1,8 @@
+node_modules/
+*.log
+*.bin
+*.hex
+*.har
+.DS_Store
+cloudflared
+package-lock.json
