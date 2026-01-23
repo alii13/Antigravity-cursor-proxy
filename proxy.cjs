@@ -68,6 +68,7 @@ const MODELS_INFO = [
     { id: 'ag-pro', name: 'Gemini 3 Pro', desc: 'Highest intelligence, best for complex logic & architecture.', icon: '🧠' },
     { id: 'ag-flash', name: 'Gemini 3 Flash', desc: 'Lighting fast, perfect for quick edits and chats.', icon: '⚡' },
     { id: 'ag-sonnet', name: 'Claude 4.5 Sonnet (Thinking)', desc: 'Advanced reasoning and deep context understanding.', icon: '🧪' },
+    { id: 'ag-opus', name: 'Claude 4.5 Opus (Thinking)', desc: 'Maximum intelligence for the most challenging tasks.', icon: '🏆' },
     { id: 'ag-haiku', name: 'Gemini 2.5 Lite', desc: 'Ultra-lightweight and efficient for simple tasks.', icon: '🎈' }
 ];
 
