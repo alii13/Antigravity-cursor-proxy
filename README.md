@@ -1,5 +1,9 @@
 ![Antigravity Proxy Banner](assets/banner.png)
 
+> [!IMPORTANT]
+> **Disclaimer: For Educational and Research Purposes Only.**
+> This project is a proof-of-concept designed to demonstrate protocol translation and proxy logic. It is not intended for commercial use. The authors and contributors are not responsible for any misuse, account suspensions, or legal consequences resulting from the use of this software. Use at your own risk and in accordance with your service providers' Terms of Service.
+
 # Antigravity Proxy for Cursor
 
 A high-fidelity bridge that brings Google's latest **Gemini 3** and **Claude 4.5** models directly into your Cursor IDE with full Agentic and Composer support.
