@@ -1,10 +1,10 @@
 ![Antigravity Proxy Banner](assets/banner.png)
 
-# 🚀 Antigravity Proxy for Cursor
+# Antigravity Proxy for Cursor
 
 A high-fidelity bridge that brings Google's latest **Gemini 3** and **Claude 4.5** models directly into your Cursor IDE with full Agentic and Composer support.
 
-## 🧠 Why Antigravity Proxy?
+## Why Antigravity Proxy?
 Google's advanced agentic models (internal versions of Gemini/Claude) use a specific protocol that standard OpenAI-compatible clients (like Cursor) cannot understand natively. This proxy:
 1.  **Translates Protocols**: Converts OpenAI requests into Google's Agentic format.
 2.  **Injects Thought Signatures**: Automatically handles the complex reasoning traces required for tool calling.
@@ -27,7 +27,7 @@ When you run `npm start`, the engine launches two processes:
 
 ---
 
-## 🚀 Setup Instructions
+## Setup Instructions
 
 ### 1. Start the Proxy
 In your terminal, run:
