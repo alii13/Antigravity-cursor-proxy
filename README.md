@@ -31,6 +31,13 @@ When you run `npm start`, the engine launches two processes:
 
 ---
 
+## Prerequisites: The "Session Bridge"
+For this proxy to work, it MUST be able to see your local Google authorization.
+*   **Keep Antigravity/VS Code Logged In**: You must have the Google Cloud Code (Antigravity) extension installed and be **logged in** with your account.
+*   **Active Session**: The proxy extracts tokens dynamically. If you sign out of the extension, the proxy will stop working until you sign back in.
+
+---
+
 ## Setup Instructions
 
 ### 1. Start the Proxy
