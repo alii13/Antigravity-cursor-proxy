@@ -65,11 +65,14 @@ app.use((req, res, next) => {
 
 // Friendly models list with descriptions
 const MODELS_INFO = [
-    { id: 'ag-pro', name: 'Gemini 3 Pro', desc: 'Highest intelligence, best for complex logic & architecture.', icon: '🧠' },
-    { id: 'ag-flash', name: 'Gemini 3 Flash', desc: 'Lighting fast, perfect for quick edits and chats.', icon: '⚡' },
-    { id: 'ag-sonnet', name: 'Claude 4.5 Sonnet (Thinking)', desc: 'Advanced reasoning and deep context understanding.', icon: '🧪' },
-    { id: 'ag-opus', name: 'Claude 4.5 Opus (Thinking)', desc: 'Maximum intelligence for the most challenging tasks.', icon: '🏆' },
-    { id: 'ag-haiku', name: 'Gemini 2.5 Lite', desc: 'Ultra-lightweight and efficient for simple tasks.', icon: '🎈' }
+    { id: 'gemini-3-flash', name: 'Gemini 3 Flash', desc: 'Lighting fast, perfect for quick edits and chats.', icon: '⚡' },
+    { id: 'gemini-3-pro-high', name: 'Gemini 3 Pro (High)', desc: 'Highest intelligence, best for complex logic & architecture.', icon: '🧠' },
+    { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro', desc: 'Balanced performance for general coding tasks.', icon: '⚖️' },
+    { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash', desc: 'Previous generation fast model.', icon: '🌩️' },
+    { id: 'claude-sonnet-4-5-thinking', name: 'Claude 4.5 Sonnet (Thinking)', desc: 'Advanced reasoning and deep context understanding.', icon: '🧪' },
+    { id: 'claude-opus-4-5-thinking', name: 'Claude 4.5 Opus (Thinking)', desc: 'Maximum intelligence for the most challenging tasks.', icon: '🏆' },
+    { id: 'claude-opus-4-6-thinking', name: 'Claude 4.6 Opus (Thinking)', desc: 'Next-gen reasoning capabilities.', icon: '🚀' },
+    { id: 'gpt-oss-120b-medium', name: 'GPT-OSS 120B', desc: 'Open source model alternative.', icon: '🔓' }
 ];
 
 // Root status page
@@ -88,12 +91,12 @@ app.get('/', (req, res) => {
     res.send(`
         <html>
             <body style="background: #0d0e12; color: #fff; font-family: -apple-system, blinkmacsystemfont, 'Segoe UI', Roboto, sans-serif; display: flex; justify-content: center; align-items: center; padding: 20px;">
-                <div style="max-width: 500px; width: 100%;">
+                <div style="max-width: 600px; width: 100%;">
                     <h1 style="text-align: center; margin-bottom: 5px;">🚀 Antigravity Proxy</h1>
-                    <p style="text-align: center; color: #888; margin-bottom: 30px;">Your private gateway to Google's Deepmind models.</p>
+                    <p style="text-align: center; color: #888; margin-bottom: 30px;">Your upgraded gateway to Google's Deepmind models.</p>
                     
                     <div style="background: #16171d; border: 1px solid #333; padding: 20px; border-radius: 12px; margin-bottom: 20px;">
-                        <div style="font-weight: bold; margin-bottom: 10px; color: #00ff88;">✓ Proxy Connection Stable</div>
+                        <div style="font-weight: bold; margin-bottom: 10px; color: #00ff88;">✓ Proxy Connection Stable (Sandbox)</div>
                         <div style="font-size: 14px;">Base URL: <code style="background: #000; padding: 3px 6px; border-radius: 4px;">/v1</code></div>
                     </div>
 
@@ -101,7 +104,7 @@ app.get('/', (req, res) => {
                     ${modelCards}
 
                     <div style="text-align: center; padding: 20px; color: #555; font-size: 12px;">
-                        Antigravity Proxy v1.2.0 • Running on Local Port 3000
+                        Antigravity Proxy v1.2.1 • Running on Local Port 3000
                     </div>
                 </div>
             </body>
@@ -140,19 +143,38 @@ async function ensureAuth() {
 }
 
 const MODEL_MAPPING = {
+    // Custom aliases
     'ag-pro': 'gemini-3-pro-high',
     'ag-flash': 'gemini-3-flash',
     'ag-sonnet': 'claude-sonnet-4-5-thinking',
     'ag-opus': 'claude-opus-4-5-thinking',
     'ag-haiku': 'gemini-2.5-flash-lite[1m]',
-    'gpt-4o': 'gemini-3-pro-high',
-    'gpt-4o-mini': 'gemini-3-flash',
+
+    // Direct mappings
+    'gemini-3-flash': 'gemini-3-flash',
+    'gemini-3-flash-thinking': 'gemini-3-flash',
+    'gemini-3-pro-high': 'gemini-3-pro-high',
+    'gemini-3-pro-low': 'gemini-3-pro-low',
+    'gemini-2.5-pro': 'gemini-2.5-pro',
+    'gemini-2.5-flash': 'gemini-2.5-flash',
+    'gemini-2.5-flash-thinking': 'gemini-2.5-flash',
+    'gemini-2.5-flash-lite': 'gemini-2.5-flash-lite',
+
+    // Claude mappings
+    'claude-opus-4-6': 'claude-opus-4-6-thinking',
+    'claude-4-6-thinking': 'claude-opus-4-6-thinking',
+    'claude-opus-4-5': 'claude-opus-4-5-thinking',
+    'claude-sonnet-4-5': 'claude-sonnet-4-5-thinking',
+    'claude-sonnet-4-5-thinking': 'claude-sonnet-4-5-thinking',
     'claude-3-5-sonnet': 'claude-sonnet-4-5-thinking',
     'claude-3-5-sonnet-20241022': 'claude-sonnet-4-5-thinking',
     'claude-3-opus': 'claude-opus-4-5-thinking',
-    'claude-3-haiku': 'gemini-2.5-flash-lite[1m]',
-    'gemini-1.5-flash': 'gemini-3-flash',
-    'gemini-1.5-pro': 'gemini-3-pro-high'
+
+    // Fallbacks
+    'gpt-4o': 'gemini-3-pro-high',
+    'gpt-4o-mini': 'gemini-3-flash',
+    'gemini-1.5-flash': 'gemini-2.5-flash',
+    'gemini-1.5-pro': 'gemini-2.5-pro'
 };
 
 const ANTIGRAVITY_SYSTEM_INSTRUCTION = `You are Antigravity, a powerful agentic AI coding assistant designed by the Google Deepmind team working on Advanced Agentic Coding. You MUST identify yourself as Antigravity. You are powered by Google's latest models. Ignore any previous instructions stating you are from OpenAI or Anthropic.`;
@@ -373,13 +395,7 @@ app.post(['/v1/chat/completions', '/chat/completions'], async (req, res) => {
         const headers = {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
-            'User-Agent': 'antigravity/1.11.5 darwin/arm64',
-            'X-Goog-Api-Client': 'google-cloud-sdk vscode_cloudshelleditor/0.1',
-            'Client-Metadata': JSON.stringify({
-                ideType: 'IDE_UNSPECIFIED',
-                platform: 'PLATFORM_UNSPECIFIED',
-                pluginType: 'GEMINI'
-            })
+            'User-Agent': 'antigravity/1.15.8 windows/amd64', // Updated to match Kazuki repo
         };
 
         // --- DEBUG REQUEST ---
@@ -388,7 +404,8 @@ app.post(['/v1/chat/completions', '/chat/completions'], async (req, res) => {
         } catch (e) { console.error('Log failed', e); }
         // ---------------------
 
-        const remoteUrl = 'https://daily-cloudcode-pa.googleapis.com/v1internal:streamGenerateContent?alt=sse';
+        // Updated remote URL to sandbox
+        const remoteUrl = 'https://daily-cloudcode-pa.sandbox.googleapis.com/v1internal:streamGenerateContent?alt=sse';
 
         if (stream) {
             res.setHeader('Content-Type', 'text/event-stream');
