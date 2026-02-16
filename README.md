@@ -40,21 +40,27 @@ For this proxy to work, it MUST be able to see your local Google authorization.
 
 ## Setup Instructions
 
-### 1. Start the Proxy
+### 1. Installation
+First, install dependencies. This will automatically download the correct `cloudflared` binary for your OS:
+```bash
+npm install
+```
+
+### 2. Start the Proxy
 In your terminal, run:
 ```bash
 npm start
 ```
 Watch for the big green rocket icon. Copy the **Base URL** (e.g., `https://random-words.trycloudflare.com/v1`).
 
-### 2. Configure Cursor
+### 3. Configure Cursor
 1.  Open **Cursor Settings** (`Cmd + Shift + J` or Click the gear icon).
 2.  Go to **Models** > **OpenAI**.
 3.  **CRITICAL**: Enable the **"Override OpenAI Base URL"** toggle.
 4.  Paste your **New Base URL** into the field.
 5.  (Optional but Recommended) **Restart Cursor** to ensure the new networking configuration is fully picked up by the internal AI engine.
 
-### 3. Model Selection
+### 4. Model Selection
 In the Cursor sidebar or Composer, select one of these IDs:
 *   `ag-pro`: Gemini 3 Pro (High intelligence, architecture).
 *   `ag-flash`: Gemini 3 Flash (Sub-second latency, quick edits).
